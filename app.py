@@ -27,7 +27,7 @@ if not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 
 # The model we use for generating explanations
-MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-3.6-flash"
 
 
 # ---------------------------------------------------------
