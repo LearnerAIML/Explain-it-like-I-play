@@ -27,7 +27,7 @@ if not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 
 # The model we use for generating explanations
-MODEL_NAME = "gemini-3.6-flash"
+MODEL_NAME = "gemini-2.0-flash"
 
 
 # ---------------------------------------------------------
@@ -107,9 +107,14 @@ def generate_explanation(game: str, topic: str, difficulty_instruction: str) -> 
     3. {difficulty_instruction}
     4. Keep the tone fun and engaging, like a knowledgeable friend explaining
        it over a gaming session.
-    5. End with a short 1-2 line "Quick Recap" that ties the analogy back to
+    5. STRICT LENGTH LIMIT: Keep the ENTIRE explanation between 50 and 100
+       words. Do not go over 100 words under any circumstance — be concise
+       and punchy, not exhaustive.
+    6. Use plenty of relevant emojis throughout the explanation (not just at
+       the start) to make it feel fun and interactive.
+    7. End with a short 1-line "Quick Recap 🔁" that ties the analogy back to
        the real technical term.
-    6. Use markdown formatting (headers, bold, bullet points) to make it easy to read.
+    8. Use markdown formatting (bold, bullet points) to make it easy to read.
     """
 
     user_prompt = f"Explain the concept of '{topic}' using {game}."
@@ -126,16 +131,35 @@ def generate_explanation(game: str, topic: str, difficulty_instruction: str) -> 
 # ---------------------------------------------------------
 # 6. SIDEBAR: KPIs + history
 # ---------------------------------------------------------
+# Shrinks the sidebar's metric value font so full game names
+# (e.g. "Minecraft") display in full instead of being cut off as "M...".
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebar"] [data-testid="stMetricValue"] {
+        font-size: 1.1rem;
+        white-space: normal;
+        word-break: break-word;
+    }
+    [data-testid="stSidebar"] [data-testid="stMetricLabel"] {
+        font-size: 0.75rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 with st.sidebar:
     st.header("📊 Session Stats")
 
-    col1, col2 = st.columns(2)
-    col1.metric(
+    # Stacked vertically instead of side-by-side columns so each
+    # metric has full width to show the complete game name.
+    st.metric(
         label="Explanations Generated",
         value=st.session_state.total_explanations,
         delta=1 if st.session_state.total_explanations > 0 else None,
     )
-    col2.metric(
+    st.metric(
         label="Last Game Used",
         value=f"{GAME_EMOJIS.get(st.session_state.last_game, '')} {st.session_state.last_game}",
     )
@@ -172,42 +196,46 @@ st.divider()
 
 
 # ---------------------------------------------------------
-# 8. MAIN FORM: game, topic, difficulty
+# 8. INPUTS: game, topic, difficulty
 # ---------------------------------------------------------
-# st.form batches all inputs together so the app only calls the API
-# ONCE when "Generate" is clicked, instead of on every widget interaction.
-with st.form(key="explain_form"):
-    left, right = st.columns([1, 1])
+# NOTE: These selectors are OUTSIDE st.form on purpose. Streamlit only
+# reruns the script (and reveals new widgets like the custom-topic
+# textbox) when a widget's on_change fires — but a form freezes all
+# widgets inside it until the submit button is clicked. Keeping the
+# topic dropdown outside the form lets the "Other" textbox appear
+# immediately when selected. The actual Gemini API call is still
+# gated behind a single button press below, so there's no extra cost.
+left, right = st.columns([1, 1])
 
-    with left:
-        selected_game = st.selectbox(
-            "🕹️ Pick your favorite game",
-            options=GAMES,
-            index=GAMES.index(st.session_state.last_game)
-            if st.session_state.last_game in GAMES
-            else 0,
-        )
-
-    with right:
-        topic_choice = st.selectbox("🧠 Pick a topic (or choose 'Other')", options=PRESET_TOPICS)
-
-    custom_topic = ""
-    if topic_choice == "Other (type your own)":
-        custom_topic = st.text_input(
-            "✏️ Type your own engineering/CS topic",
-            placeholder="e.g. Dynamic Programming, Load Balancers, OAuth...",
-        )
-
-    difficulty = st.slider(
-        "🎚️ Explanation difficulty",
-        min_value=1,
-        max_value=4,
-        value=2,
-        help="1 = Total beginner  •  4 = Advanced / interview-level",
+with left:
+    selected_game = st.selectbox(
+        "🕹️ Pick your favorite game",
+        options=GAMES,
+        index=GAMES.index(st.session_state.last_game)
+        if st.session_state.last_game in GAMES
+        else 0,
     )
-    st.caption(f"Selected level: **{difficulty}** — {DIFFICULTY_LEVELS[difficulty].split('(')[0].strip()}")
 
-    submitted = st.form_submit_button("✨ Generate Explanation", use_container_width=True)
+with right:
+    topic_choice = st.selectbox("🧠 Pick a topic (or choose 'Other')", options=PRESET_TOPICS)
+
+custom_topic = ""
+if topic_choice == "Other (type your own)":
+    custom_topic = st.text_input(
+        "✏️ Type your own engineering/CS topic",
+        placeholder="e.g. Dynamic Programming, Load Balancers, OAuth...",
+    )
+
+difficulty = st.slider(
+    "🎚️ Explanation difficulty",
+    min_value=1,
+    max_value=4,
+    value=2,
+    help="1 = Total beginner  •  4 = Advanced / interview-level",
+)
+st.caption(f"Selected level: **{difficulty}** — {DIFFICULTY_LEVELS[difficulty].split('(')[0].strip()}")
+
+submitted = st.button("✨ Generate Explanation", use_container_width=True)
 
 
 # ---------------------------------------------------------
@@ -252,3 +280,7 @@ if submitted:
 # ---------------------------------------------------------
 st.divider()
 st.caption("Built with Streamlit + Google Gemini API | Explain it Like I Play © 2026")
+st.markdown(
+    "<p style='text-align: center; color: gray;'>Made with ❤️ by Varad</p>",
+    unsafe_allow_html=True,
+)
