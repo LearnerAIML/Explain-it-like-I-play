@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+*.pyc
 build/
 develop-eggs/
 dist/
@@ -216,3 +217,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# OS files
+.DS_Store
