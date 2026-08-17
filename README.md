@@ -32,7 +32,7 @@ concept.
 
 ## `> demo`
 
-🔗 **Live App:** `PASTE_YOUR_STREAMLIT_LIVE_LINK_HERE`
+🔗 **Live App:** https://explain-it-like-i-play.streamlit.app/
 
 ---
 
@@ -63,55 +63,12 @@ flowchart LR
     B --> D[Rendered Explanation]
 ```
 
----
-
-## `> setup`
-
-### 1. Clone the repo
-```bash
-git clone https://github.com/YOUR_USERNAME/explain-it-like-i-play.git
-cd explain-it-like-i-play
-```
-
-### 2. Install dependencies
-
-**Using `uv`  (recommended — faster):**
-```bash
-uv venv
-source .venv/bin/activate      # On Windows: .venv\Scripts\activate
-uv pip install -r requirements.txt
-```
-
-**Or using plain `pip`:**
-```bash
-python -m venv .venv
-source .venv/bin/activate      # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 3. Add your Gemini API key
-```bash
-cp .env.example .env
-```
-Then open `.env` and paste your key:
-```
-GEMINI_API_KEY=your_actual_key_here
-```
-Get a free key at → https://aistudio.google.com/app/apikey
-
-### 4. Run the app
-```bash
-streamlit run app.py
-```
-
----
-
 ## `> tech_stack`
 
 | Layer | Tool |
 |---|---|
 | Frontend / UI | Streamlit |
-| AI Engine | Google Gemini API (`gemini-2.0-flash`) |
+| AI Engine | Google Gemini API (`gemini-3.6-flash`) |
 | Env Management | `python-dotenv` |
 | Package Manager | `uv` (or pip) |
 | Language | Python 3.10+ |
@@ -135,9 +92,4 @@ explain-it-like-i-play/
 
 ## `> author`
 
-Built by **Varad** — B.Tech CS (AIML), as a hackathon / recruitment showcase
-project.
-
-```
-$ echo "Made with Python, Gemini, and one too many Minecraft analogies."
-```
+Built by **Varad** — B.Tech CS (AIML), as a showcase project.
