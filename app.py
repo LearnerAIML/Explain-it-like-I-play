@@ -12,7 +12,9 @@ import time
 from copy import deepcopy
 
 import streamlit as st
+import pandas as pd
 import google.generativeai as genai
+from PIL import Image
 from dotenv import load_dotenv
 
 # ---------------------------------------------------------
@@ -35,16 +37,38 @@ if not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 
 # ---------------------------------------------------------
-# 2. SESSION STATE
+# 2. PERSISTENT HISTORY MANAGEMENT (Pandas Pipeline)
+# ---------------------------------------------------------
+HISTORY_FILE = "session_history.csv"
+
+def load_history() -> list:
+    """Loads history from CSV to persist across window reloads."""
+    if os.path.exists(HISTORY_FILE):
+        try:
+            return pd.read_csv(HISTORY_FILE).to_dict('records')
+        except Exception:
+            return []
+    return []
+
+def save_history(history_list: list):
+    """Saves history to CSV using a Pandas DataFrame."""
+    if history_list:
+        df = pd.DataFrame(history_list)
+        df.to_csv(HISTORY_FILE, index=False)
+    else:
+        if os.path.exists(HISTORY_FILE):
+            os.remove(HISTORY_FILE)
+
+# ---------------------------------------------------------
+# 3. SESSION STATE
 # ---------------------------------------------------------
 DEFAULT_STATE = {
-    "history": [],
-    "total_explanations": 0,
+    "history": load_history(),
     "last_game": "Minecraft",
     "current_package": None,
     "current_topic": "",
     "current_game": "",
-    "current_difficulty": 2,
+    "current_difficulty": 3,
     "simulation_step": 0,
     "simulation_feedback": None,
     "quiz_submitted": False,
@@ -59,9 +83,10 @@ for key, value in DEFAULT_STATE.items():
     if key not in st.session_state:
         st.session_state[key] = deepcopy(value)
 
+st.session_state.total_explanations = len(st.session_state.history)
 
 # ---------------------------------------------------------
-# 3. PAGE CONFIG & CUSTOM CSS
+# 4. PAGE CONFIG & CUSTOM CSS
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="Explain it Like I Play",
@@ -70,18 +95,19 @@ st.set_page_config(
 )
 
 def apply_custom_css(theme):
-    """Injects professional gaming/tech UI styling with dynamic theming."""
-    
+    """Injects professional gaming/tech UI styling with dynamic text coloring."""
     if theme == "Light":
         bg_color = "#f0f2f6"
         grid_color = "rgba(0, 0, 0, 0.05)"
         card_bg = "rgba(255, 255, 255, 0.85)"
         border_color = "rgba(0, 0, 0, 0.1)"
+        text_color = "#000000"
     else:
         bg_color = "#0e1117"
         grid_color = "rgba(255, 255, 255, 0.04)"
         card_bg = "rgba(14, 17, 23, 0.8)"
         border_color = "rgba(255, 255, 255, 0.05)"
+        text_color = "#ffffff"
 
     st.markdown(
         f"""
@@ -94,12 +120,13 @@ def apply_custom_css(theme):
                 linear-gradient(90deg, {grid_color} 1px, transparent 1px);
             background-size: 30px 30px;
             transition: background-color 0.3s ease;
+            color: {text_color};
         }}
 
         /* 2. Glassmorphism for the main content block */
         .block-container {{
             background: {card_bg} !important;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-radius: 20px;
@@ -109,14 +136,21 @@ def apply_custom_css(theme):
             margin-top: 2rem;
             margin-bottom: 2rem;
             transition: background 0.3s ease;
+            color: {text_color};
         }}
 
-        /* 3. Pointer cursor for interactive elements */
+        /* 3. Text color overrides for Light Mode visibility */
+        h1, h2, h3, h4, h5, h6, p, .stMarkdown, .stText {{
+            color: {text_color} !important;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }}
+
+        /* 4. Pointer cursor for interactive elements */
         button, a, input, select, textarea, .stSelectbox {{
             cursor: pointer !important;
         }}
 
-        /* 4. Glow effect on Primary Generate Button */
+        /* 5. Glow effect on Primary Generate Button */
         [data-testid="baseButton-primary"] {{
             background: linear-gradient(135deg, #FF4B4B, #FF8A4B);
             border: none;
@@ -127,11 +161,6 @@ def apply_custom_css(theme):
             box-shadow: 0 6px 20px rgba(255, 75, 75, 0.7);
             transform: translateY(-2px);
         }}
-        
-        /* 5. Sleeker Headers */
-        h1, h2, h3 {{
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
         </style>
         """,
         unsafe_allow_html=True
@@ -140,33 +169,33 @@ def apply_custom_css(theme):
 apply_custom_css(st.session_state.theme)
 
 # ---------------------------------------------------------
-# 4. STATIC DATA
+# 5. STATIC DATA
 # ---------------------------------------------------------
-GAMES = ["Minecraft", "Mario", "Valorant", "Chess", "Other (Custom)"]
+GAMES = ["Minecraft", "Mario", "Valorant", "Chess", "Linux OS (Terminal)", "Other (Custom)"]
 
 GAME_EMOJIS = {
     "Minecraft": "🧱",
     "Mario": "🍄",
     "Valorant": "🎯",
     "Chess": "♟️",
+    "Linux OS (Terminal)": "🐧"
 }
 
 PRESET_TOPICS = [
-    "Recursion",
+    "Data Structures (Trees/Graphs)",
+    "Sorting Algorithms",
+    "Operating System Scheduling",
+    "Database Management (ACID)",
+    "Digital Logic Design",
+    "Machine Learning (Model Training)",
     "Load Balancing",
-    "Binary Search",
-    "TCP/IP Handshake",
-    "Caching",
-    "Race Conditions",
-    "Public Key Encryption",
-    "Garbage Collection",
     "Other (Custom)"
 ]
 
 DIFFICULTY_LEVELS = {
     1: "Explain like I'm a total beginner (very simple, short sentences).",
     2: "Explain at a casual hobbyist level (some technical words are okay).",
-    3: "Explain at a college-student level (assume basic CS/engineering background).",
+    3: "Explain at a college-student level (assume core CS/engineering background).",
     4: "Explain at an advanced/interview-prep level (precise, in-depth, still game-themed).",
 }
 
@@ -176,7 +205,7 @@ MODEL_OPTIONS = [
 ]
 
 # ---------------------------------------------------------
-# 5. Structured Gemini generation + validation
+# 6. Structured Gemini generation + validation
 # ---------------------------------------------------------
 def extract_json(text: str) -> dict:
     cleaned = text.strip()
@@ -200,17 +229,18 @@ def generate_learning_package(
     difficulty_instruction: str,
     model_name: str,
     alternative_analogy: bool = False,
+    image_file = None,
 ) -> dict | None:
+    
     mode_instruction = (
-        "Try a DIFFERENT game mechanic than the most obvious analogy. "
-        "Make the alternative concrete and still technically correct."
+        "Try a DIFFERENT game mechanic than the most obvious analogy."
         if alternative_analogy
         else "Use the clearest concrete mechanics from the chosen game."
     )
 
     system_prompt = f"""
 You are "GameSensei", an AI tutor.
-The chosen game is: {game}
+The chosen game/environment is: {game}
 The technical topic is: {topic}
 
 Your goal is to teach the real technical idea through the user's game knowledge.
@@ -270,6 +300,16 @@ JSON schema:
 
     user_prompt = f"Create the complete learning package for '{topic}' using {game}."
     
+    # Multimodal payload construction
+    contents = [user_prompt]
+    if image_file is not None:
+        try:
+            img = Image.open(image_file)
+            contents.append(img)
+            contents.append("I have attached a screenshot of the game. Analyze the visual elements and mechanics shown in this image and incorporate them into your analogy mapping if relevant.")
+        except Exception as e:
+            st.warning(f"Could not process image: {e}")
+
     model = genai.GenerativeModel(
         model_name=model_name,
         system_instruction=system_prompt,
@@ -279,7 +319,7 @@ JSON schema:
     for attempt in range(max_retries):
         try:
             response = model.generate_content(
-                user_prompt,
+                contents,
                 generation_config={
                     "temperature": 0.7,
                     "response_mime_type": "application/json",
@@ -298,7 +338,7 @@ JSON schema:
             time.sleep(1.5)
 
 # ---------------------------------------------------------
-# 6. UI HELPERS 
+# 7. UI HELPERS 
 # ---------------------------------------------------------
 def reset_learning_state():
     st.session_state.simulation_step = 0
@@ -478,7 +518,7 @@ def render_package(package, game, topic):
 
 
 # ---------------------------------------------------------
-# 7. SIDEBAR: stats + history
+# 8. SIDEBAR: stats + history
 # ---------------------------------------------------------
 st.markdown(
     """
@@ -497,24 +537,30 @@ st.markdown(
 )
 
 with st.sidebar:
-    st.header("📊 Session Stats")
+    st.header("📊 Session Stats & Pipelines")
 
-    st.metric(
-        label="Explanations Generated",
-        value=st.session_state.total_explanations,
-        delta=1 if st.session_state.total_explanations > 0 else None,
-    )
-    st.metric(
-        label="Last Game Used",
-        value=f"{GAME_EMOJIS.get(st.session_state.last_game, '')} {st.session_state.last_game}",
-    )
+    # Dynamic KPI Cards
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(
+            label="Explanations",
+            value=st.session_state.total_explanations,
+            delta=1 if st.session_state.total_explanations > 0 else None,
+        )
+    with col2:
+        st.metric(
+            label="Last Game",
+            value=st.session_state.last_game if st.session_state.last_game else "None",
+        )
 
     st.divider()
-    st.subheader("🕘 History")
-
+    st.subheader("🕘 Persistent History")
+    
+    # Using Pandas DataFrame for clean data pipelines
     if st.session_state.history:
+        df_history = pd.DataFrame(st.session_state.history)
         st.data_editor(
-            st.session_state.history,
+            df_history,
             use_container_width=True,
             hide_index=True,
             disabled=True,
@@ -525,13 +571,34 @@ with st.sidebar:
             st.session_state.history = []
             st.session_state.total_explanations = 0
             st.session_state.current_package = None
+            save_history([]) 
             st.rerun()
     else:
         st.caption("No explanations yet. Generate one to see it here!")
 
+    st.divider()
+    with st.expander("📝 Architecture Documentation", expanded=False):
+        st.markdown(
+            """
+            **System Design & Data Flow:**
+            ```mermaid
+            graph TD
+                A[User Input: Game & Topic] --> B(st.form Batching)
+                B --> C{Multimodal Camera?}
+                C -->|Yes| D[Image + Text Prompt]
+                C -->|No| E[Text Prompt Only]
+                D --> F[Gemini Vision API]
+                E --> F
+                F --> G[JSON Parsing & Validation]
+                G --> H[Pandas DataFrame Pipeline]
+                H --> I[Local CSV Persistence]
+                H --> J[Streamlit UI Render]
+            ```
+            """
+        )
 
 # ---------------------------------------------------------
-# 8. MAIN PAGE
+# 9. MAIN PAGE
 # ---------------------------------------------------------
 # Top Right Customization Options
 top_col1, top_col2, top_col3 = st.columns([2, 1, 1])
@@ -561,7 +628,7 @@ st.markdown(
 )
 st.divider()
 
-# Input Setup
+# Input Setup outside form for dynamic conditional UI
 left, right = st.columns([1, 1])
 
 with left:
@@ -578,7 +645,7 @@ with left:
 
 with right:
     topic_preset = st.selectbox(
-        "🧠 Pick a preset topic",
+        "🧠 Pick a core technical topic",
         options=PRESET_TOPICS,
     )
     
@@ -587,31 +654,38 @@ with right:
     else:
         custom_topic = ""
 
-difficulty = st.slider(
-    "🎚️ Explanation difficulty",
-    min_value=1,
-    max_value=4,
-    value=2,
-    help="1 = Total beginner  •  4 = Advanced / interview-level",
-)
-
-generate_col, alternative_col = st.columns([3, 1])
-
-with generate_col:
-    submitted = st.button(
-        "✨ Generate Learning Package",
-        use_container_width=True,
-        type="primary",
+# Wrap API Submission in st.form to optimize calls
+with st.form("generation_form"):
+    st.markdown("### ⚙️ Generation Settings")
+    difficulty = st.slider(
+        "🎚️ Explanation difficulty",
+        min_value=1,
+        max_value=4,
+        value=st.session_state.current_difficulty,
+        help="1 = Total beginner  •  4 = Advanced / interview-level",
     )
+    
+    # Multimodality Implementation
+    st.caption("📸 Multimodal Vision (Optional): Scan a specific game screen to map its mechanics directly!")
+    camera_image = st.camera_input("Scan Game Screen", label_visibility="collapsed")
 
-with alternative_col:
-    alternative_requested = st.button(
-        "🔄 New Analogy",
-        use_container_width=True,
-    )
+    generate_col, alternative_col = st.columns([3, 1])
+
+    with generate_col:
+        submitted = st.form_submit_button(
+            "✨ Generate Learning Package",
+            use_container_width=True,
+            type="primary",
+        )
+
+    with alternative_col:
+        alternative_requested = st.form_submit_button(
+            "🔄 New Analogy",
+            use_container_width=True,
+        )
 
 # ---------------------------------------------------------
-# 9. HANDLE GENERATION
+# 10. HANDLE GENERATION
 # ---------------------------------------------------------
 request_generation = submitted or alternative_requested
 
@@ -624,7 +698,6 @@ if request_generation:
     else:
         reset_learning_state()
 
-        # Parse the actual API model name from the UI string
         actual_model = model_choice.split(" ")[0]
 
         action_label = (
@@ -640,6 +713,7 @@ if request_generation:
                 difficulty_instruction=DIFFICULTY_LEVELS[difficulty],
                 model_name=actual_model,
                 alternative_analogy=alternative_requested,
+                image_file=camera_image
             )
 
         if package:
@@ -647,9 +721,10 @@ if request_generation:
             st.session_state.current_topic = final_topic
             st.session_state.current_game = final_game
             st.session_state.current_difficulty = difficulty
-
             st.session_state.total_explanations += 1
             st.session_state.last_game = final_game
+            
+            # Update history and save via Pandas Pipeline
             st.session_state.history.append(
                 {
                     "Game": final_game,
@@ -658,9 +733,11 @@ if request_generation:
                     "Mode": "Alternative analogy" if alternative_requested else "AI Generated",
                 }
             )
+            save_history(st.session_state.history)
+            st.rerun()
 
 # ---------------------------------------------------------
-# 10. RENDER CURRENT PACKAGE
+# 11. RENDER CURRENT PACKAGE
 # ---------------------------------------------------------
 if st.session_state.current_package:
     render_package(
@@ -670,7 +747,7 @@ if st.session_state.current_package:
     )
 
 # ---------------------------------------------------------
-# 11. FOOTER
+# 12. FOOTER
 # ---------------------------------------------------------
 st.divider()
 st.caption("Built with Streamlit + Google Gemini API | Explain it Like I Play © 2026")
