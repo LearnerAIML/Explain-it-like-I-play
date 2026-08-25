@@ -654,6 +654,28 @@ with right:
     else:
         custom_topic = ""
 
+st.divider()
+
+# Multimodality Implementation (Placed outside the form for instant interactivity)
+st.markdown("### 📸 Multimodal Vision (Optional)")
+st.caption("Upload a screenshot or scan a game screen to map its mechanics directly!")
+
+enable_vision = st.toggle("Activate Image/Camera Input")
+vision_image = None
+
+if enable_vision:
+    vision_source = st.radio(
+        "Choose image source:",
+        options=["📁 Choose from Device", "📷 Turn on Camera"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    
+    if vision_source == "📁 Choose from Device":
+        vision_image = st.file_uploader("Upload a game screenshot", type=["png", "jpg", "jpeg"])
+    else:
+        vision_image = st.camera_input("Scan Game Screen")
+
 # Wrap API Submission in st.form to optimize calls
 with st.form("generation_form"):
     st.markdown("### ⚙️ Generation Settings")
@@ -664,10 +686,6 @@ with st.form("generation_form"):
         value=st.session_state.current_difficulty,
         help="1 = Total beginner  •  4 = Advanced / interview-level",
     )
-    
-    # Multimodality Implementation
-    st.caption("📸 Multimodal Vision (Optional): Scan a specific game screen to map its mechanics directly!")
-    camera_image = st.camera_input("Scan Game Screen", label_visibility="collapsed")
 
     generate_col, alternative_col = st.columns([3, 1])
 
@@ -713,7 +731,7 @@ if request_generation:
                 difficulty_instruction=DIFFICULTY_LEVELS[difficulty],
                 model_name=actual_model,
                 alternative_analogy=alternative_requested,
-                image_file=camera_image
+                image_file=vision_image  # Passes either the uploaded file or camera snap
             )
 
         if package:
