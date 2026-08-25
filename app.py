@@ -76,7 +76,6 @@ DEFAULT_STATE = {
     "reverse_answer": "",
     "reverse_checked": False,
     "theme": "Dark",
-    "selected_model": "gemini-3.5-flash"
 }
 
 for key, value in DEFAULT_STATE.items():
@@ -112,7 +111,7 @@ def apply_custom_css(theme):
     st.markdown(
         f"""
         <style>
-        /* 1. Subtle Tech/Gaming Grid Background */
+        /* Subtle Tech/Gaming Grid Background */
         .stApp {{
             background-color: {bg_color};
             background-image: 
@@ -123,7 +122,7 @@ def apply_custom_css(theme):
             color: {text_color};
         }}
 
-        /* 2. Glassmorphism for the main content block */
+        /* Glassmorphism for the main content block */
         .block-container {{
             background: {card_bg} !important;
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
@@ -139,18 +138,18 @@ def apply_custom_css(theme):
             color: {text_color};
         }}
 
-        /* 3. Text color overrides for Light Mode visibility */
+        /* Text color overrides for Light Mode visibility */
         h1, h2, h3, h4, h5, h6, p, .stMarkdown, .stText {{
             color: {text_color} !important;
             text-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }}
 
-        /* 4. Pointer cursor for interactive elements */
+        /* Pointer cursor for interactive elements */
         button, a, input, select, textarea, .stSelectbox {{
             cursor: pointer !important;
         }}
 
-        /* 5. Glow effect on Primary Generate Button */
+        /* Glow effect on Primary Generate Button */
         [data-testid="baseButton-primary"] {{
             background: linear-gradient(135deg, #FF4B4B, #FF8A4B);
             border: none;
@@ -171,14 +170,13 @@ apply_custom_css(st.session_state.theme)
 # ---------------------------------------------------------
 # 5. STATIC DATA
 # ---------------------------------------------------------
-GAMES = ["Minecraft", "Mario", "Valorant", "Chess", "Linux OS (Terminal)", "Other (Custom)"]
+GAMES = ["Minecraft", "Mario", "Valorant", "Chess", "Other (Custom)"]
 
 GAME_EMOJIS = {
     "Minecraft": "🧱",
     "Mario": "🍄",
     "Valorant": "🎯",
     "Chess": "♟️",
-    "Linux OS (Terminal)": "🐧"
 }
 
 PRESET_TOPICS = [
@@ -201,7 +199,8 @@ DIFFICULTY_LEVELS = {
 
 MODEL_OPTIONS = [
     "gemini-3.5-flash",
-    "gemini-3.6-flash (might not be available right now due to API constraints)"
+    "gemini-3.6-flash (might not be available right now.)"
+    "gemini-3.7-flash (might not be available right now.)"
 ]
 
 # ---------------------------------------------------------
@@ -304,7 +303,7 @@ JSON schema:
     contents = [user_prompt]
     if image_file is not None:
         try:
-            img = Image.open(image_file)
+            img = Image.open(image_file) # PIL natively handles both string paths and Streamlit file objects
             contents.append(img)
             contents.append("I have attached a screenshot of the game. Analyze the visual elements and mechanics shown in this image and incorporate them into your analogy mapping if relevant.")
         except Exception as e:
@@ -518,7 +517,7 @@ def render_package(package, game, topic):
 
 
 # ---------------------------------------------------------
-# 8. SIDEBAR: stats + history
+# 8. SIDEBAR: Settings, Stats + History
 # ---------------------------------------------------------
 st.markdown(
     """
@@ -537,6 +536,27 @@ st.markdown(
 )
 
 with st.sidebar:
+    st.header("⚙️ App Settings")
+    
+    theme_choice = st.selectbox(
+        "🎨 Theme",
+        options=["Dark", "Light"],
+        index=0 if st.session_state.theme == "Dark" else 1,
+        key="theme_selector"
+    )
+    if theme_choice != st.session_state.theme:
+        st.session_state.theme = theme_choice
+        st.rerun()
+
+    model_choice = st.selectbox(
+        "🤖 AI Model",
+        options=MODEL_OPTIONS,
+        index=0,
+        key="model_selector"
+    )
+
+    st.divider()
+
     st.header("📊 Session Stats & Pipelines")
 
     # Dynamic KPI Cards
@@ -600,27 +620,6 @@ with st.sidebar:
 # ---------------------------------------------------------
 # 9. MAIN PAGE
 # ---------------------------------------------------------
-# Top Right Customization Options
-top_col1, top_col2, top_col3 = st.columns([2, 1, 1])
-
-with top_col2:
-    theme_choice = st.selectbox(
-        "🎨 Theme",
-        options=["Dark", "Light"],
-        index=0 if st.session_state.theme == "Dark" else 1,
-        key="theme_selector"
-    )
-    if theme_choice != st.session_state.theme:
-        st.session_state.theme = theme_choice
-        st.rerun()
-
-with top_col3:
-    model_choice = st.selectbox(
-        "⚙️ Model",
-        options=MODEL_OPTIONS,
-        index=0,
-        key="model_selector"
-    )
 
 st.title("🎮 Explain it Like I Play")
 st.markdown(
@@ -635,7 +634,7 @@ with left:
     selected_game_preset = st.selectbox(
         "🕹️ Pick your favorite game",
         options=GAMES,
-        index=GAMES.index(st.session_state.last_game) if st.session_state.last_game in GAMES else 0,
+        index=0,  # Defaults to Minecraft
     )
     
     if selected_game_preset == "Other (Custom)":
@@ -647,6 +646,7 @@ with right:
     topic_preset = st.selectbox(
         "🧠 Pick a core technical topic",
         options=PRESET_TOPICS,
+        index=0,  # Defaults to Data Structures
     )
     
     if topic_preset == "Other (Custom)":
@@ -657,21 +657,27 @@ with right:
 st.divider()
 
 # Multimodality Implementation (Placed outside the form for instant interactivity)
-st.markdown("### 📸 Multimodal Vision (Optional)")
-st.caption("Upload a screenshot or scan a game screen to map its mechanics directly!")
+st.markdown("### 📸 Multimodal Vision")
+st.caption("Provide visual context to map mechanics directly. You can use the default demo image to test it right away.")
 
-enable_vision = st.toggle("Activate Image/Camera Input")
+enable_vision = st.toggle("Activate Vision Input", value=True)
 vision_image = None
 
 if enable_vision:
     vision_source = st.radio(
         "Choose image source:",
-        options=["📁 Choose from Device", "📷 Turn on Camera"],
+        options=["🖼️ Default Demo Image", "📁 Choose from Device", "📷 Turn on Camera"],
         horizontal=True,
         label_visibility="collapsed"
     )
     
-    if vision_source == "📁 Choose from Device":
+    if vision_source == "🖼️ Default Demo Image":
+        vision_image = "maxresdefault.jpg"
+        try:
+            st.image(vision_image, caption="Default: maxresdefault.jpg", use_container_width=True)
+        except Exception:
+            st.error("⚠️ Default image 'maxresdefault.jpg' not found. Please ensure it is in the same directory as app.py.")
+    elif vision_source == "📁 Choose from Device":
         vision_image = st.file_uploader("Upload a game screenshot", type=["png", "jpg", "jpeg"])
     else:
         vision_image = st.camera_input("Scan Game Screen")
@@ -731,7 +737,7 @@ if request_generation:
                 difficulty_instruction=DIFFICULTY_LEVELS[difficulty],
                 model_name=actual_model,
                 alternative_analogy=alternative_requested,
-                image_file=vision_image  # Passes either the uploaded file or camera snap
+                image_file=vision_image  # Passes either the default image path, uploaded file, or camera snap
             )
 
         if package:
