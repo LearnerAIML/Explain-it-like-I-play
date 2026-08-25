@@ -97,12 +97,14 @@ def apply_custom_css(theme):
     """Injects professional gaming/tech UI styling with dynamic text coloring."""
     if theme == "Light":
         bg_color = "#f0f2f6"
+        sidebar_bg = "#ffffff"
         grid_color = "rgba(0, 0, 0, 0.05)"
         card_bg = "rgba(255, 255, 255, 0.85)"
         border_color = "rgba(0, 0, 0, 0.1)"
         text_color = "#000000"
     else:
         bg_color = "#0e1117"
+        sidebar_bg = "#11151c"
         grid_color = "rgba(255, 255, 255, 0.04)"
         card_bg = "rgba(14, 17, 23, 0.8)"
         border_color = "rgba(255, 255, 255, 0.05)"
@@ -120,6 +122,23 @@ def apply_custom_css(theme):
             background-size: 30px 30px;
             transition: background-color 0.3s ease;
             color: {text_color};
+        }}
+        
+        /* Sidebar Theming */
+        [data-testid="stSidebar"] {{
+            background-color: {sidebar_bg} !important;
+            transition: background-color 0.3s ease;
+        }}
+        [data-testid="stSidebarHeader"] {{
+            background-color: transparent !important;
+        }}
+        [data-testid="stSidebar"] h1, 
+        [data-testid="stSidebar"] h2, 
+        [data-testid="stSidebar"] h3, 
+        [data-testid="stSidebar"] p,
+        [data-testid="stSidebar"] div,
+        [data-testid="stSidebar"] span {{
+            color: {text_color} !important;
         }}
 
         /* Glassmorphism for the main content block */
@@ -199,7 +218,7 @@ DIFFICULTY_LEVELS = {
 
 MODEL_OPTIONS = [
     "gemini-3.5-flash",
-    "gemini-3.6-flash (might not be available right now.)"
+    "gemini-3.6-flash (might not be available right now.)",
     "gemini-3.7-flash (might not be available right now.)"
 ]
 
@@ -596,26 +615,6 @@ with st.sidebar:
     else:
         st.caption("No explanations yet. Generate one to see it here!")
 
-    st.divider()
-    with st.expander("📝 Architecture Documentation", expanded=False):
-        st.markdown(
-            """
-            **System Design & Data Flow:**
-            ```mermaid
-            graph TD
-                A[User Input: Game & Topic] --> B(st.form Batching)
-                B --> C{Multimodal Camera?}
-                C -->|Yes| D[Image + Text Prompt]
-                C -->|No| E[Text Prompt Only]
-                D --> F[Gemini Vision API]
-                E --> F
-                F --> G[JSON Parsing & Validation]
-                G --> H[Pandas DataFrame Pipeline]
-                H --> I[Local CSV Persistence]
-                H --> J[Streamlit UI Render]
-            ```
-            """
-        )
 
 # ---------------------------------------------------------
 # 9. MAIN PAGE
@@ -658,26 +657,20 @@ st.divider()
 
 # Multimodality Implementation (Placed outside the form for instant interactivity)
 st.markdown("### 📸 Multimodal Vision")
-st.caption("Provide visual context to map mechanics directly. You can use the default demo image to test it right away.")
+st.caption("Provide visual context to map mechanics directly.")
 
-enable_vision = st.toggle("Activate Vision Input", value=True)
+enable_vision = st.toggle("Activate Vision Input", value=False)
 vision_image = None
 
 if enable_vision:
     vision_source = st.radio(
         "Choose image source:",
-        options=["🖼️ Default Demo Image", "📁 Choose from Device", "📷 Turn on Camera"],
+        options=["📁 Choose from Device", "📷 Turn on Camera"],
         horizontal=True,
         label_visibility="collapsed"
     )
     
-    if vision_source == "🖼️ Default Demo Image":
-        vision_image = "maxresdefault.jpg"
-        try:
-            st.image(vision_image, caption="Default: maxresdefault.jpg", use_container_width=True)
-        except Exception:
-            st.error("⚠️ Default image 'maxresdefault.jpg' not found. Please ensure it is in the same directory as app.py.")
-    elif vision_source == "📁 Choose from Device":
+    if vision_source == "📁 Choose from Device":
         vision_image = st.file_uploader("Upload a game screenshot", type=["png", "jpg", "jpeg"])
     else:
         vision_image = st.camera_input("Scan Game Screen")
@@ -737,7 +730,7 @@ if request_generation:
                 difficulty_instruction=DIFFICULTY_LEVELS[difficulty],
                 model_name=actual_model,
                 alternative_analogy=alternative_requested,
-                image_file=vision_image  # Passes either the default image path, uploaded file, or camera snap
+                image_file=vision_image  # Passes either the uploaded file or camera snap
             )
 
         if package:
