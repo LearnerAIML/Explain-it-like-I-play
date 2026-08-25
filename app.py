@@ -34,81 +34,8 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-MODEL_NAME = "gemini-3.5-flash"
-
 # ---------------------------------------------------------
-# 2. PAGE CONFIG & CUSTOM CSS
-# ---------------------------------------------------------
-st.set_page_config(
-    page_title="Explain it Like I Play",
-    page_icon="🎮",
-    layout="wide",
-)
-
-def apply_custom_css():
-    """Injects professional gaming/tech UI styling."""
-    st.markdown(
-        """
-        <style>
-        /* 1. Subtle Tech/Gaming Grid Background */
-        .stApp {
-            background-color: #0e1117;
-            background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-            background-size: 30px 30px;
-        }
-
-        /* 2. Glassmorphism for the main content block */
-        .block-container {
-            background: rgba(14, 17, 23, 0.8) !important;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding-top: 3rem !important;
-            padding-bottom: 3rem !important;
-            margin-top: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        /* 3. Gaming Crosshair Cursor */
-        body, .stApp, .main, div {
-            cursor: crosshair !important;
-        }
-        
-        /* Keep pointer cursor for interactive elements */
-        button, a, input, select, textarea, .stSelectbox {
-            cursor: pointer !important;
-        }
-
-        /* 4. Glow effect on Primary Generate Button */
-        [data-testid="baseButton-primary"] {
-            background: linear-gradient(135deg, #FF4B4B, #FF8A4B);
-            border: none;
-            box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4);
-            transition: all 0.3s ease;
-        }
-        [data-testid="baseButton-primary"]:hover {
-            box-shadow: 0 6px 20px rgba(255, 75, 75, 0.7);
-            transform: translateY(-2px);
-        }
-        
-        /* 5. Sleeker Headers */
-        h1, h2, h3 {
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-# Apply the UI upgrades
-apply_custom_css()
-
-# ---------------------------------------------------------
-# 3. SESSION STATE
+# 2. SESSION STATE
 # ---------------------------------------------------------
 DEFAULT_STATE = {
     "history": [],
@@ -124,16 +51,98 @@ DEFAULT_STATE = {
     "quiz_answers": {},
     "reverse_answer": "",
     "reverse_checked": False,
+    "theme": "Dark",
+    "selected_model": "gemini-3.5-flash"
 }
 
 for key, value in DEFAULT_STATE.items():
     if key not in st.session_state:
         st.session_state[key] = deepcopy(value)
 
+
+# ---------------------------------------------------------
+# 3. PAGE CONFIG & CUSTOM CSS
+# ---------------------------------------------------------
+st.set_page_config(
+    page_title="Explain it Like I Play",
+    page_icon="🎮",
+    layout="wide",
+)
+
+def apply_custom_css(theme):
+    """Injects professional gaming/tech UI styling with dynamic theming."""
+    
+    if theme == "Light":
+        bg_color = "#f0f2f6"
+        grid_color = "rgba(0, 0, 0, 0.05)"
+        card_bg = "rgba(255, 255, 255, 0.85)"
+        border_color = "rgba(0, 0, 0, 0.1)"
+    else:
+        bg_color = "#0e1117"
+        grid_color = "rgba(255, 255, 255, 0.04)"
+        card_bg = "rgba(14, 17, 23, 0.8)"
+        border_color = "rgba(255, 255, 255, 0.05)"
+
+    st.markdown(
+        f"""
+        <style>
+        /* 1. Subtle Tech/Gaming Grid Background */
+        .stApp {{
+            background-color: {bg_color};
+            background-image: 
+                linear-gradient({grid_color} 1px, transparent 1px),
+                linear-gradient(90deg, {grid_color} 1px, transparent 1px);
+            background-size: 30px 30px;
+            transition: background-color 0.3s ease;
+        }}
+
+        /* 2. Glassmorphism for the main content block */
+        .block-container {{
+            background: {card_bg} !important;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 20px;
+            border: 1px solid {border_color};
+            padding-top: 2rem !important;
+            padding-bottom: 3rem !important;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            transition: background 0.3s ease;
+        }}
+
+        /* 3. Pointer cursor for interactive elements */
+        button, a, input, select, textarea, .stSelectbox {{
+            cursor: pointer !important;
+        }}
+
+        /* 4. Glow effect on Primary Generate Button */
+        [data-testid="baseButton-primary"] {{
+            background: linear-gradient(135deg, #FF4B4B, #FF8A4B);
+            border: none;
+            box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4);
+            transition: all 0.3s ease;
+        }}
+        [data-testid="baseButton-primary"]:hover {{
+            box-shadow: 0 6px 20px rgba(255, 75, 75, 0.7);
+            transform: translateY(-2px);
+        }}
+        
+        /* 5. Sleeker Headers */
+        h1, h2, h3 {{
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+apply_custom_css(st.session_state.theme)
+
 # ---------------------------------------------------------
 # 4. STATIC DATA
 # ---------------------------------------------------------
-GAMES = ["Minecraft", "Mario", "Valorant", "Chess"]
+GAMES = ["Minecraft", "Mario", "Valorant", "Chess", "Other (Custom)"]
 
 GAME_EMOJIS = {
     "Minecraft": "🧱",
@@ -151,6 +160,7 @@ PRESET_TOPICS = [
     "Race Conditions",
     "Public Key Encryption",
     "Garbage Collection",
+    "Other (Custom)"
 ]
 
 DIFFICULTY_LEVELS = {
@@ -159,6 +169,11 @@ DIFFICULTY_LEVELS = {
     3: "Explain at a college-student level (assume basic CS/engineering background).",
     4: "Explain at an advanced/interview-prep level (precise, in-depth, still game-themed).",
 }
+
+MODEL_OPTIONS = [
+    "gemini-3.5-flash",
+    "gemini-3.6-flash (might not be available right now due to API constraints)"
+]
 
 # ---------------------------------------------------------
 # 5. Structured Gemini generation + validation
@@ -183,6 +198,7 @@ def generate_learning_package(
     game: str,
     topic: str,
     difficulty_instruction: str,
+    model_name: str,
     alternative_analogy: bool = False,
 ) -> dict | None:
     mode_instruction = (
@@ -255,7 +271,7 @@ JSON schema:
     user_prompt = f"Create the complete learning package for '{topic}' using {game}."
     
     model = genai.GenerativeModel(
-        model_name=MODEL_NAME,
+        model_name=model_name,
         system_instruction=system_prompt,
     )
 
@@ -277,12 +293,12 @@ JSON schema:
 
         except Exception as exc:
             if attempt == max_retries - 1:
-                st.error(f"❌ API not available (Failed after {max_retries} attempts). Error details: {str(exc)}")
+                st.error(f"❌ API not available or model constraint hit. Error details: {str(exc)}")
                 return None
             time.sleep(1.5)
 
 # ---------------------------------------------------------
-# 6. UI HELPERS (Fixing the scroll bugs using Callbacks!)
+# 6. UI HELPERS 
 # ---------------------------------------------------------
 def reset_learning_state():
     st.session_state.simulation_step = 0
@@ -311,11 +327,9 @@ def render_simulation(simulation):
     st.markdown(f"### {simulation['title']}")
     st.info(f"**Scenario:** {step.get('scenario', 'You are now inside the scenario.')}")
 
-    # Radio button for choices
     choice_key = f"simulation_choice_{st.session_state.current_topic}_{step_index}"
     st.radio(step["question"], step["options"], key=choice_key)
 
-    # --- Callbacks instead of st.rerun() to prevent scroll jumping ---
     def handle_check_decision():
         selected_choice = st.session_state[choice_key]
         selected_idx = step["options"].index(selected_choice)
@@ -331,7 +345,6 @@ def render_simulation(simulation):
     def handle_restart_sim():
         st.session_state.simulation_step = 0
         st.session_state.simulation_feedback = None
-    # -----------------------------------------------------------------
 
     st.button(
         "✅ Check Decision",
@@ -368,7 +381,6 @@ def render_quiz(quiz):
             label_visibility="collapsed",
         )
 
-    # Callback to prevent scroll jumping
     def handle_quiz_submit():
         answers = {}
         for idx in range(min(3, len(quiz))):
@@ -410,7 +422,6 @@ def render_reverse_learning(challenge):
     text_key = f"reverse_answer_{st.session_state.current_topic}"
     st.text_area(challenge["prompt"], key=text_key, height=130)
 
-    # Callback to prevent scroll jumping
     def handle_reverse_check():
         st.session_state.reverse_answer = st.session_state.get(text_key, "").strip()
         st.session_state.reverse_checked = True
@@ -522,57 +533,82 @@ with st.sidebar:
 # ---------------------------------------------------------
 # 8. MAIN PAGE
 # ---------------------------------------------------------
+# Top Right Customization Options
+top_col1, top_col2, top_col3 = st.columns([2, 1, 1])
+
+with top_col2:
+    theme_choice = st.selectbox(
+        "🎨 Theme",
+        options=["Dark", "Light"],
+        index=0 if st.session_state.theme == "Dark" else 1,
+        key="theme_selector"
+    )
+    if theme_choice != st.session_state.theme:
+        st.session_state.theme = theme_choice
+        st.rerun()
+
+with top_col3:
+    model_choice = st.selectbox(
+        "⚙️ Model",
+        options=MODEL_OPTIONS,
+        index=0,
+        key="model_selector"
+    )
+
 st.title("🎮 Explain it Like I Play")
 st.markdown(
     "##### Turn tricky engineering topics into game logic you already understand — then prove you understand the real concept."
 )
 st.divider()
 
-with st.form("main_input_form"):
-    left, right = st.columns([1, 1])
+# Input Setup
+left, right = st.columns([1, 1])
 
-    with left:
-        selected_game = st.selectbox(
-            "🕹️ Pick your favorite game",
-            options=GAMES,
-            index=GAMES.index(st.session_state.last_game)
-            if st.session_state.last_game in GAMES
-            else 0,
-        )
+with left:
+    selected_game_preset = st.selectbox(
+        "🕹️ Pick your favorite game",
+        options=GAMES,
+        index=GAMES.index(st.session_state.last_game) if st.session_state.last_game in GAMES else 0,
+    )
+    
+    if selected_game_preset == "Other (Custom)":
+        custom_game = st.text_input("✏️ Enter custom game name", placeholder="e.g. Dark Souls, Stardew Valley...")
+    else:
+        custom_game = ""
 
-    with right:
-        topic_choice = st.selectbox(
-            "🧠 Pick a preset topic",
-            options=PRESET_TOPICS,
-        )
+with right:
+    topic_preset = st.selectbox(
+        "🧠 Pick a preset topic",
+        options=PRESET_TOPICS,
+    )
+    
+    if topic_preset == "Other (Custom)":
+        custom_topic = st.text_input("✏️ Enter custom technical topic", placeholder="e.g. Dynamic Programming, OAuth...")
+    else:
+        custom_topic = ""
 
-    custom_topic = st.text_input(
-        "✏️ Or type your own custom topic (Overrides the preset above if filled)",
-        placeholder="e.g. Dynamic Programming, Load Balancers, OAuth...",
+difficulty = st.slider(
+    "🎚️ Explanation difficulty",
+    min_value=1,
+    max_value=4,
+    value=2,
+    help="1 = Total beginner  •  4 = Advanced / interview-level",
+)
+
+generate_col, alternative_col = st.columns([3, 1])
+
+with generate_col:
+    submitted = st.button(
+        "✨ Generate Learning Package",
+        use_container_width=True,
+        type="primary",
     )
 
-    difficulty = st.slider(
-        "🎚️ Explanation difficulty",
-        min_value=1,
-        max_value=4,
-        value=2,
-        help="1 = Total beginner  •  4 = Advanced / interview-level",
+with alternative_col:
+    alternative_requested = st.button(
+        "🔄 New Analogy",
+        use_container_width=True,
     )
-
-    generate_col, alternative_col = st.columns([3, 1])
-
-    with generate_col:
-        submitted = st.form_submit_button(
-            "✨ Generate Learning Package",
-            use_container_width=True,
-            type="primary",
-        )
-
-    with alternative_col:
-        alternative_requested = st.form_submit_button(
-            "🔄 New Analogy",
-            use_container_width=True,
-        )
 
 # ---------------------------------------------------------
 # 9. HANDLE GENERATION
@@ -580,39 +616,43 @@ with st.form("main_input_form"):
 request_generation = submitted or alternative_requested
 
 if request_generation:
-    final_topic = custom_topic.strip() if custom_topic.strip() else topic_choice
+    final_game = custom_game.strip() if selected_game_preset == "Other (Custom)" else selected_game_preset
+    final_topic = custom_topic.strip() if topic_preset == "Other (Custom)" else topic_preset
 
-    if not final_topic:
-        st.warning("⚠️ Please enter a topic before generating an explanation.")
+    if not final_topic or not final_game:
+        st.warning("⚠️ Please ensure both a game and a topic are provided before generating.")
     else:
-        # Reset any old interactive state before creating a new package.
         reset_learning_state()
 
+        # Parse the actual API model name from the UI string
+        actual_model = model_choice.split(" ")[0]
+
         action_label = (
-            f"Trying a different {selected_game} analogy..."
+            f"Trying a different {final_game} analogy..."
             if alternative_requested
-            else f"Building a {selected_game} explanation for '{final_topic}'..."
+            else f"Building a {final_game} explanation for '{final_topic}'..."
         )
 
         with st.spinner(action_label):
             package = generate_learning_package(
-                game=selected_game,
+                game=final_game,
                 topic=final_topic,
                 difficulty_instruction=DIFFICULTY_LEVELS[difficulty],
+                model_name=actual_model,
                 alternative_analogy=alternative_requested,
             )
 
         if package:
             st.session_state.current_package = package
             st.session_state.current_topic = final_topic
-            st.session_state.current_game = selected_game
+            st.session_state.current_game = final_game
             st.session_state.current_difficulty = difficulty
 
             st.session_state.total_explanations += 1
-            st.session_state.last_game = selected_game
+            st.session_state.last_game = final_game
             st.session_state.history.append(
                 {
-                    "Game": selected_game,
+                    "Game": final_game,
                     "Topic": final_topic,
                     "Difficulty": difficulty,
                     "Mode": "Alternative analogy" if alternative_requested else "AI Generated",
