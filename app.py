@@ -34,16 +34,78 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-MODEL_NAME = "gemini-3.5-flash"
+MODEL_NAME = "gemini-2.0-flash"
 
 # ---------------------------------------------------------
-# 2. PAGE CONFIG
+# 2. PAGE CONFIG & CUSTOM CSS
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="Explain it Like I Play",
     page_icon="🎮",
     layout="wide",
 )
+
+def apply_custom_css():
+    """Injects professional gaming/tech UI styling."""
+    st.markdown(
+        """
+        <style>
+        /* 1. Subtle Tech/Gaming Grid Background */
+        .stApp {
+            background-color: #0e1117;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        /* 2. Glassmorphism for the main content block */
+        .block-container {
+            background: rgba(14, 17, 23, 0.8) !important;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 3rem !important;
+            padding-bottom: 3rem !important;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        /* 3. Gaming Crosshair Cursor */
+        body, .stApp, .main, div {
+            cursor: crosshair !important;
+        }
+        
+        /* Keep pointer cursor for interactive elements */
+        button, a, input, select, textarea, .stSelectbox {
+            cursor: pointer !important;
+        }
+
+        /* 4. Glow effect on Primary Generate Button */
+        [data-testid="baseButton-primary"] {
+            background: linear-gradient(135deg, #FF4B4B, #FF8A4B);
+            border: none;
+            box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4);
+            transition: all 0.3s ease;
+        }
+        [data-testid="baseButton-primary"]:hover {
+            box-shadow: 0 6px 20px rgba(255, 75, 75, 0.7);
+            transform: translateY(-2px);
+        }
+        
+        /* 5. Sleeker Headers */
+        h1, h2, h3 {
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+# Apply the UI upgrades
+apply_custom_css()
 
 # ---------------------------------------------------------
 # 3. SESSION STATE
@@ -102,7 +164,6 @@ DIFFICULTY_LEVELS = {
 # 5. Structured Gemini generation + validation
 # ---------------------------------------------------------
 def extract_json(text: str) -> dict:
-    """Extract JSON even if Gemini wraps it in a markdown code fence."""
     cleaned = text.strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s*```$", "", cleaned)
@@ -113,7 +174,6 @@ def extract_json(text: str) -> dict:
     return json.loads(cleaned[start : end + 1])
 
 def validate_package(data: dict) -> bool:
-    """Strictly validate the minimum UI contract before rendering."""
     required = ["explanation", "mapping", "analogy_break", "code_example", "simulation", "quiz", "reverse_challenge"]
     if not isinstance(data, dict) or any(key not in data for key in required):
         return False
@@ -125,9 +185,6 @@ def generate_learning_package(
     difficulty_instruction: str,
     alternative_analogy: bool = False,
 ) -> dict | None:
-    """
-    Makes the Gemini call. Retries once if it fails. Returns None if it fails twice.
-    """
     mode_instruction = (
         "Try a DIFFERENT game mechanic than the most obvious analogy. "
         "Make the alternative concrete and still technically correct."
@@ -222,10 +279,10 @@ JSON schema:
             if attempt == max_retries - 1:
                 st.error(f"❌ API not available (Failed after {max_retries} attempts). Error details: {str(exc)}")
                 return None
-            time.sleep(1.5) # Wait 1.5 seconds before retrying
+            time.sleep(1.5)
 
 # ---------------------------------------------------------
-# 6. UI HELPERS
+# 6. UI HELPERS (Fixing the scroll bugs using Callbacks!)
 # ---------------------------------------------------------
 def reset_learning_state():
     st.session_state.simulation_step = 0
@@ -254,23 +311,34 @@ def render_simulation(simulation):
     st.markdown(f"### {simulation['title']}")
     st.info(f"**Scenario:** {step.get('scenario', 'You are now inside the scenario.')}")
 
-    choice = st.radio(
-        step["question"],
-        step["options"],
-        key=f"simulation_choice_{st.session_state.current_topic}_{step_index}",
-    )
+    # Radio button for choices
+    choice_key = f"simulation_choice_{st.session_state.current_topic}_{step_index}"
+    st.radio(step["question"], step["options"], key=choice_key)
 
-    if st.button(
+    # --- Callbacks instead of st.rerun() to prevent scroll jumping ---
+    def handle_check_decision():
+        selected_choice = st.session_state[choice_key]
+        selected_idx = step["options"].index(selected_choice)
+        st.session_state.simulation_feedback = {
+            "is_correct": selected_idx == step["correct_index"],
+            "text": step["explanation"],
+        }
+
+    def handle_next_step():
+        st.session_state.simulation_step += 1
+        st.session_state.simulation_feedback = None
+
+    def handle_restart_sim():
+        st.session_state.simulation_step = 0
+        st.session_state.simulation_feedback = None
+    # -----------------------------------------------------------------
+
+    st.button(
         "✅ Check Decision",
         key=f"check_simulation_{st.session_state.current_topic}_{step_index}",
         use_container_width=True,
-    ):
-        selected_index = step["options"].index(choice)
-        is_correct = selected_index == step["correct_index"]
-        st.session_state.simulation_feedback = {
-            "is_correct": is_correct,
-            "text": step["explanation"],
-        }
+        on_click=handle_check_decision
+    )
 
     feedback = st.session_state.simulation_feedback
     if feedback is not None:
@@ -281,16 +349,10 @@ def render_simulation(simulation):
         st.caption(feedback["text"])
 
         if step_index < len(steps) - 1:
-            if st.button("➡️ Next Step", key=f"next_simulation_{step_index}", use_container_width=True):
-                st.session_state.simulation_step += 1
-                st.session_state.simulation_feedback = None
-                st.rerun()
+            st.button("➡️ Next Step", key=f"next_simulation_{step_index}", use_container_width=True, on_click=handle_next_step)
         else:
             st.success("🏁 Simulation complete. Now test yourself in the Boss Battle.")
-            if st.button("🔄 Restart Simulation", key="restart_simulation", use_container_width=True):
-                st.session_state.simulation_step = 0
-                st.session_state.simulation_feedback = None
-                st.rerun()
+            st.button("🔄 Restart Simulation", key="restart_simulation", use_container_width=True, on_click=handle_restart_sim)
 
 def render_quiz(quiz):
     st.subheader("⚔️ Boss Battle")
@@ -306,14 +368,16 @@ def render_quiz(quiz):
             label_visibility="collapsed",
         )
 
-    if st.button("🏆 Submit Boss Battle", use_container_width=True):
+    # Callback to prevent scroll jumping
+    def handle_quiz_submit():
         answers = {}
-        for i, question in enumerate(quiz[:3]):
-            key = f"quiz_{st.session_state.current_topic}_{i}"
-            selected = st.session_state.get(key)
-            answers[i] = selected
+        for idx in range(min(3, len(quiz))):
+            key = f"quiz_{st.session_state.current_topic}_{idx}"
+            answers[idx] = st.session_state.get(key)
         st.session_state.quiz_answers = answers
         st.session_state.quiz_submitted = True
+
+    st.button("🏆 Submit Boss Battle", use_container_width=True, on_click=handle_quiz_submit)
 
     if st.session_state.quiz_submitted:
         score = 0
@@ -342,16 +406,16 @@ def render_quiz(quiz):
 def render_reverse_learning(challenge):
     st.subheader("🧠 Learn It Without the Game")
     st.caption("This checks whether you understood the real concept rather than only memorizing the analogy.")
+    
+    text_key = f"reverse_answer_{st.session_state.current_topic}"
+    st.text_area(challenge["prompt"], key=text_key, height=130)
 
-    answer = st.text_area(
-        challenge["prompt"],
-        key=f"reverse_answer_{st.session_state.current_topic}",
-        height=130,
-    )
-
-    if st.button("🔍 Self-Check My Explanation", use_container_width=True):
-        st.session_state.reverse_answer = answer.strip()
+    # Callback to prevent scroll jumping
+    def handle_reverse_check():
+        st.session_state.reverse_answer = st.session_state.get(text_key, "").strip()
         st.session_state.reverse_checked = True
+
+    st.button("🔍 Self-Check My Explanation", use_container_width=True, on_click=handle_reverse_check)
 
     if st.session_state.reverse_checked:
         if not st.session_state.reverse_answer:
@@ -538,7 +602,6 @@ if request_generation:
                 alternative_analogy=alternative_requested,
             )
 
-        # Only update state and render if we actually got a package back
         if package:
             st.session_state.current_package = package
             st.session_state.current_topic = final_topic
