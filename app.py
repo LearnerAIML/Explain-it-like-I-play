@@ -16,18 +16,26 @@ from dotenv import load_dotenv
 # ---------------------------------------------------------
 # 1. SETUP: Load API key and configure Gemini
 # ---------------------------------------------------------
-load_dotenv()  # reads variables from .env file into the environment
+load_dotenv()  # reads variables from .env file into the environment (local dev)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Works both locally (.env file) and on Streamlit Cloud (st.secrets).
+# st.secrets is checked first since that's how Streamlit Cloud stores it.
+try:
+    GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+except (KeyError, FileNotFoundError):
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
-    st.error("⚠️ GEMINI_API_KEY not found. Please add it to your .env file (see README).")
+    st.error(
+        "⚠️ GEMINI_API_KEY not found. Add it to your .env file (local) "
+        "or to Streamlit Cloud's Secrets (deployed app)."
+    )
     st.stop()
 
 genai.configure(api_key=GEMINI_API_KEY)
 
 # The model we use for generating explanations
-MODEL_NAME = "gemini-3.6-flash"
+MODEL_NAME = "gemini-2.0-flash"
 
 
 # ---------------------------------------------------------
